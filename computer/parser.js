@@ -1,5 +1,5 @@
-# Parse string into tokens
-function parse(code: string) :: string:
+# Parse string into program
+function parse(code: string) :: nbtcompound:
   set {_state} to {_code}
   return program({_state})
 
