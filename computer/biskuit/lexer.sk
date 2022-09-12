@@ -10,7 +10,7 @@ on load:
     # ------------------------------------------------------------
     # SYMBOLS
     # ------------------------------------------------------------
-    set {_lexer::;} to "(\;)"
+    set {-lexer::;} to "(\;)"
 
     # ------------------------------------------------------------
     # COMMENTS
@@ -38,20 +38,17 @@ function getNextToken(id: number):
     set {_string} to {{@s}::string}
     set {_string} to subtext of {_string} from character cursor(0, {_id}) to character (length of {_string})
 
-    broadcast "LEXER_C: %{_string}%"
-
     loop {-lexer::*}:
         set {_matcher} to Pattern.compile("^%loop-value%").matcher({_string})
         if {_matcher}.find():
             set {_whole} to {_matcher}.group(0)
-            broadcast "LEXER_C.2: %{_whole}% %loop-index%"
             cursor((length of {_whole}), {_id})
             if {_matcher}.groupCount() < 1:
                 getNextToken({_id})
                 stop
             set {_compound} to nbt compound from "{}"
             set string tag "type" of {_compound} to loop-index
-            set tag "value" of {_compound} to {_matcher}.group(1)
+            set string tag "value" of {_compound} to {_matcher}.group(1)
             set {{@s}::lookahead} to {_compound}
             stop
 
@@ -63,7 +60,5 @@ function hasNextToken(id: number) :: boolean:
 
 function cursor(increment: number, id: number) :: number:
     set {_cursor} to {{@s}::cursor}
-    broadcast "LEXER.A: %{{@s}::cursor}%, %{_increment}%"
     add {_increment} to {{@s}::cursor}
-    broadcast "LEXER.B: %{{@s}::cursor}%"
     return {_cursor}
