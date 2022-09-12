@@ -1,0 +1,93 @@
+options:
+    s: -state::%{_id}%
+
+# Utility Function
+function compound(type: string) :: nbtcompound:
+    return nbt compound from "{type:""%{_type}%""}"
+
+# Constructor
+function Parser(string: string) :: nbtcompound:
+    set {_id} to unix timestamp of now
+    set {{@s}::string} to {_string}
+    set {{@s}::cursor} to 1
+    getNextToken({_id})
+    return Program({_id})
+
+# Program
+#   - StatementList
+function Program(id: number) :: nbtcompound:
+    set {_compound} to compound("Program")
+    set compound list tag "body" of {_compound} to StatementList({_id})
+    return {_compound}
+
+# StatementList
+#   - Statement ...
+function StatementList(id: number) :: nbtcompounds:
+    set {_statements::*} to Statement({_id})
+    while {{@s}::lookahead} is set:
+        add Statement({_id}) to {_statements::*}
+    return {_statements::*}
+
+# Statement
+#   - ExpressionStatement
+function Statement(id: number) :: nbtcompound:
+    return ExpressionStatement({_id})
+
+# ExpressionStatement
+#   - Expression + ';'
+function ExpressionStatement(id: number) :: nbtcompound:
+    set {_expr} to Expression({_id})
+    consume(";", {_id})
+    set {_compound} to compound("ExpressionStatement")
+    set compound tag "expression" of {_compound} to {_expr}
+
+# Expression
+#   - Literal
+function Expression(id: number) :: nbtcompound:
+    return Literal({_id})
+
+# Literal
+#   - StringLiteral
+#   - NumberLiteral
+function Literal(id: number) :: nbtcompound:
+    set {_type} to string tag "type" of {{@s}::lookahead}
+
+    if {_type} = "STRING":
+        return StringLiteral({_id})
+    else if {_type} = "NUMBER":
+        return NumberLiteral({_id})
+    broadcast "&cUnexpected end of input"
+    return {_}
+
+# StringLiteral
+#   - STRING
+function StringLiteral(id: number) :: nbtcompound:
+    set {_string} to consume("STRING", {_id})
+    set {_compound} to compound("StringLiteral")
+    set string tag "value" of {_compound} to (string tag "value" of {_string})
+    return {_compound}
+
+# NumberLiteral
+#   - NUMBER
+function NumberLiteral(id: number) :: nbtcompound:
+    set {_number} to consume("NUMBER", {_id})
+    set {_compound} to compound("NumberLiteral")
+    set {_value} to string tag "value" of {_number}
+    set double tag "value" of {_compound} to ({_value} parsed as number)
+    return {_compound}
+
+
+
+
+
+function consume(type: string, id: number) :: nbtcompound:
+    broadcast "PARSER_CONSUME_TYPE: %{_type}%"
+    broadcast "PARSER_CONSUMED: %{{@s}::lookahead}%"
+    if {{@s}::lookahead} is not set:
+        broadcast "&cUnexpected end of input, expected: '%{_type}%'"
+    else if string tag "type" of {{@s}::lookahead} != {_type}:
+        broadcast "&cUnexpected token: %string tag "type" of {{@s}::lookahead}%, expected: %{_type}%"
+    else:
+        getNextToken({_id})
+        return {{@s}::lookahead}
+    return {_}
