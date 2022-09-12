@@ -40,6 +40,7 @@ function ExpressionStatement(id: number) :: nbtcompound:
     consume(";", {_id})
     set {_compound} to compound("ExpressionStatement")
     set compound tag "expression" of {_compound} to {_expr}
+    return {_compound}
 
 # Expression
 #   - Literal
@@ -73,6 +74,7 @@ function NumberLiteral(id: number) :: nbtcompound:
     set {_number} to consume("NUMBER", {_id})
     set {_compound} to compound("NumberLiteral")
     set {_value} to string tag "value" of {_number}
+    broadcast "TEST: %{_value}%"
     set double tag "value" of {_compound} to ({_value} parsed as number)
     return {_compound}
 
@@ -81,8 +83,6 @@ function NumberLiteral(id: number) :: nbtcompound:
 
 
 function consume(type: string, id: number) :: nbtcompound:
-    broadcast "PARSER_CONSUME_TYPE: %{_type}%"
-    broadcast "PARSER_CONSUMED: %{{@s}::lookahead}%"
     if {{@s}::lookahead} is not set:
         broadcast "&cUnexpected end of input, expected: '%{_type}%'"
     else if string tag "type" of {{@s}::lookahead} != {_type}:
