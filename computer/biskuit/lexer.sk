@@ -1,0 +1,69 @@
+import:
+    java.util.regex.Pattern
+    java.util.regex.Matcher
+
+options:
+    s: -state::%{_id}%
+
+on load:
+
+    # ------------------------------------------------------------
+    # SYMBOLS
+    # ------------------------------------------------------------
+    set {_lexer::;} to "(\;)"
+
+    # ------------------------------------------------------------
+    # COMMENTS
+    # ------------------------------------------------------------
+    set {-lexer::COMMENT1} to "//.*"
+    set {-lexer::COMMENT2} to "/\*[\s\S]*?\*/"
+
+    # ------------------------------------------------------------
+    # WHITESPACE
+    # ------------------------------------------------------------
+    set {-lexer::WHITESPACE} to "\s+"
+
+    # ------------------------------------------------------------
+    # LITERALS
+    # ------------------------------------------------------------
+    set {-lexer::NUMBER} to "(\d+(?:\.\d+)?)"
+    set {-lexer::STRING} to """((?:\\""|[^""])*)"""
+
+
+function getNextToken(id: number):
+    if hasNextToken({_id}) = false:
+        delete {{@s}::lookahead}
+        stop
+    
+    set {_string} to {{@s}::string}
+    set {_string} to subtext of {_string} from character cursor(0, {_id}) to character (length of {_string})
+
+    broadcast "LEXER_C: %{_string}%"
+
+    loop {-lexer::*}:
+        set {_matcher} to Pattern.compile("^%loop-value%").matcher({_string})
+        if {_matcher}.find():
+            set {_whole} to {_matcher}.group(0)
+            broadcast "LEXER_C.2: %{_whole}% %loop-index%"
+            cursor((length of {_whole}), {_id})
+            if {_matcher}.groupCount() < 1:
+                getNextToken({_id})
+                stop
+            set {_compound} to nbt compound from "{}"
+            set string tag "type" of {_compound} to loop-index
+            set tag "value" of {_compound} to {_matcher}.group(1)
+            set {{@s}::lookahead} to {_compound}
+            stop
+
+function hasNextToken(id: number) :: boolean:
+    set {_string} to {{@s}::string}
+    if {{@s}::cursor} <= length of {_string}:
+        return true
+    return false
+
+function cursor(increment: number, id: number) :: number:
+    set {_cursor} to {{@s}::cursor}
+    broadcast "LEXER.A: %{{@s}::cursor}%, %{_increment}%"
+    add {_increment} to {{@s}::cursor}
+    broadcast "LEXER.B: %{{@s}::cursor}%"
+    return {_cursor}
