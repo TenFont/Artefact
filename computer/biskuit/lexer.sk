@@ -6,6 +6,10 @@ options:
     s: -state::%{_id}%
 
 on load:
+    # ------------------------------------------------------------
+    # NEWLINE
+    # ------------------------------------------------------------
+    set {-lexer::newline::*} to "\n(.*?)(?:\n|$)" and "NEWLINE"
 
     # ------------------------------------------------------------
     # SYMBOLS
@@ -33,8 +37,11 @@ on load:
 
 
 function getNextToken(id: number):
+    if {{@s}::lookahead} is not set:
+        {{@s}::cursor} != 1
+        set {_failed} to true
+    delete {{@s}::lookahead}
     if hasNextToken({_id}) = false:
-        delete {{@s}::lookahead}
         stop
     
     set {_string} to {{@s}::string}
@@ -44,6 +51,12 @@ function getNextToken(id: number):
         set {_v::*} to {-lexer::%loop-value%::*}
         set {_matcher} to Pattern.compile("^%{_v::1}%").matcher({_string})
         if {_matcher}.find():
+            if {_v::2} = "NEWLINE":
+                cursor(1, {_id})
+                add 1 to {{@s}::line}
+                set {{@s}::char} to 1
+                getNextToken({_id})
+                stop
             cursor((length of {_matcher}.group(0)), {_id})
             if size of {_v::*} < 2:
                 getNextToken({_id})
@@ -53,6 +66,9 @@ function getNextToken(id: number):
             set string tag "value" of {_compound} to {_matcher}.group(1)
             set {{@s}::lookahead} to {_compound}
             stop
+    broadcast error({_id}, "Failed to analyze token") if {_failed} != true
+    cursor(1, {_id})
+    getNextToken({_id})
 
 function hasNextToken(id: number) :: boolean:
     set {_string} to {{@s}::string}
@@ -63,4 +79,5 @@ function hasNextToken(id: number) :: boolean:
 function cursor(increment: number, id: number) :: number:
     set {_cursor} to {{@s}::cursor}
     add {_increment} to {{@s}::cursor}
+    add {_increment} to {{@s}::char}
     return {_cursor}
