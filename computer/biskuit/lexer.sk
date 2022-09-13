@@ -10,24 +10,26 @@ on load:
     # ------------------------------------------------------------
     # SYMBOLS
     # ------------------------------------------------------------
-    set {-lexer::;} to "(\;)"
+    set {-lexer::semicolon::*} to "(;)" and ";"
+    set {-lexer::bracket_open::*} to "(\{)" and "{"
+    set {-lexer::bracket_close::*} to "(\})" and "}"
 
     # ------------------------------------------------------------
     # COMMENTS
     # ------------------------------------------------------------
-    set {-lexer::COMMENT1} to "//.*"
-    set {-lexer::COMMENT2} to "/\*[\s\S]*?\*/"
+    set {-lexer::COMMENT1::*} to "//.*"
+    set {-lexer::COMMENT2::*} to "/\*[\s\S]*?\*/"
 
     # ------------------------------------------------------------
     # WHITESPACE
     # ------------------------------------------------------------
-    set {-lexer::WHITESPACE} to "\s+"
+    set {-lexer::WHITESPACE::*} to "\s+"
 
     # ------------------------------------------------------------
     # LITERALS
     # ------------------------------------------------------------
-    set {-lexer::NUMBER} to "(\d+(?:\.\d+)?)"
-    set {-lexer::STRING} to """((?:\\""|[^""])*)"""
+    set {-lexer::number::*} to "(\d+(?:\.\d+)?)" and "NUMBER"
+    set {-lexer::string::*} to """((?:\\""|[^""])*)""" and "STRING"
 
 
 function getNextToken(id: number):
@@ -38,16 +40,16 @@ function getNextToken(id: number):
     set {_string} to {{@s}::string}
     set {_string} to subtext of {_string} from character cursor(0, {_id}) to character (length of {_string})
 
-    loop {-lexer::*}:
-        set {_matcher} to Pattern.compile("^%loop-value%").matcher({_string})
+    loop indices of {-lexer::*}:
+        set {_v::*} to {-lexer::%loop-value%::*}
+        set {_matcher} to Pattern.compile("^%{_v::1}%").matcher({_string})
         if {_matcher}.find():
-            set {_whole} to {_matcher}.group(0)
-            cursor((length of {_whole}), {_id})
-            if {_matcher}.groupCount() < 1:
+            cursor((length of {_matcher}.group(0)), {_id})
+            if size of {_v::*} < 2:
                 getNextToken({_id})
                 stop
             set {_compound} to nbt compound from "{}"
-            set string tag "type" of {_compound} to loop-index
+            set string tag "type" of {_compound} to {_v::2}
             set string tag "value" of {_compound} to {_matcher}.group(1)
             set {{@s}::lookahead} to {_compound}
             stop
