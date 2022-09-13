@@ -5,11 +5,23 @@ options:
 function compound(type: string) :: nbtcompound:
     return nbt compound from "{type:""%{_type}%""}"
 
+# Utility Function
+function error(id: number, prompt: string) :: string:
+    set {_line::1} to "%nl%&4[ERROR] &c%{_prompt}% &7(line %{{@s}::line}%, character %{{@s}::char}%)"
+    set {_line::2} to {{@s}::lines::%{{@s}::line}%}
+    set {_line::3} to "^"
+    while (length of {_line::3}) < {{@s}::char}:
+        set {_line::3} to " %{_line::3}%"
+    return join {_line::*} by nl
+
 # Constructor
 function Parser(string: string) :: nbtcompound:
     set {_id} to unix timestamp of now
     set {{@s}::string} to {_string}
     set {{@s}::cursor} to 1
+    set {{@s}::lines::*} to {_string} split at nl
+    set {{@s}::line} to 1
+    set {{@s}::char} to 1
     getNextToken({_id})
     return Program({_id})
 
@@ -25,11 +37,8 @@ function Program(id: number) :: nbtcompound:
 function StatementList(id: number, stopLookahead: string = "") :: nbtcompounds:
     set {_statements::*} to Statement({_id})
     while {{@s}::lookahead} is set:
-        add 1 to {_iter}
-        stop if {_iter} = 5
         set {_type} to string tag "type" of {{@s}::lookahead}
         exit loop if {_type} = {_stopLookahead}
-        broadcast "TEST" and {{@s}::cursor}, {{@s}::lookahead} and {_statements::*}
         add Statement({_id}) to {_statements::*}
     return {_statements::*}
 
@@ -40,13 +49,10 @@ function StatementList(id: number, stopLookahead: string = "") :: nbtcompounds:
 function Statement(id: number) :: nbtcompound:
     set {_type} to string tag "type" of {{@s}::lookahead}
     if {_type} = ";":
-        broadcast "D1"
         return EmptyStatement({_id})
     else if {_type} = "{":
-        broadcast "D2"
         return BlockStatement({_id})
     else:
-        broadcast "D3"
         return ExpressionStatement({_id})
 
 # EmptyStatement
@@ -93,7 +99,7 @@ function Literal(id: number) :: nbtcompound:
         return StringLiteral({_id})
     else if {_type} = "NUMBER":
         return NumberLiteral({_id})
-    broadcast "&cUnexpected end of input"
+    broadcast error({_id}, "Invalid token")
     return {_}
 
 # StringLiteral
@@ -119,9 +125,9 @@ function NumberLiteral(id: number) :: nbtcompound:
 
 function consume(id: number, type: string) :: nbtcompound:
     if {{@s}::lookahead} is not set:
-        broadcast "&cUnexpected end of input, expected: '%{_type}%'"
+        broadcast error({_id}, "Unexpected end of input, expected: '%{_type}%'")
     else if string tag "type" of {{@s}::lookahead} != {_type}:
-        broadcast "&cUnexpected token: %string tag "type" of {{@s}::lookahead}%, expected: %{_type}%"
+        broadcast error({_id}, "Unexpected token: %string tag "type" of {{@s}::lookahead}%, expected: %{_type}%")
     else:
         set {_token} to {{@s}::lookahead}
         getNextToken({_id})
