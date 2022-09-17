@@ -59,6 +59,7 @@ on load:
     registerToken("(print)\b", "print")
     registerToken("(set)\b", "set")
     registerToken("(to)\b", "to")
+    registerToken("(delete)\b", "delete")
 
     # ------------------------------------------------------------
     # LITERALS
