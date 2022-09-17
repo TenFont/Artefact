@@ -1,0 +1,138 @@
+options:
+    s: -state::%{_id}%
+
+import:
+    ch.njol.skript.registrations.Classes
+    java.util.Scanner
+    java.io.File
+
+object property class[ ]info:
+    return type: type
+    parse:
+        set {_classInfos::*} to ...Classes.getClassInfos()
+        continue
+    get:
+        loop {_classInfos::*}:
+            return loop-value if expr-1 is loop-value
+
+function init(path: string):
+    set {_scanner} to new Scanner(new File({_path}))
+    while {_scanner}.hasNextLine():
+        add {_scanner}.nextLine() to {_lines::*}
+    set {_code} to (join {_lines::*} by nl)
+
+    set {_id} to unix timestamp of now
+    set {_parsed} to Parser({_id}, {_code})
+    {_parsed} is set
+    execute({_id}, {_parsed})
+    broadcast pretty nbt of {_parsed} with split "    "
+
+function execute(id: number, statements: nbtcompounds):
+    loop {_statements::*}:
+        set {_node} to loop-value
+        set {_type} to string tag "type" of {_node}
+        set {_line} to int tag "line" of {_node}
+        set {_char} to int tag "char" of {_node}
+
+        # EmptyStatement
+        {_type} != "EmptyStatement"
+
+        # Program | BlockStatement
+        if {_type} = "Program" or "BlockStatement":
+            set {_body::*} to compound list tag "body" of {_node}
+            execute({_id}, {_body::*})
+        
+        # PrintStatement
+        else if {_type} = "PrintStatement":
+            set {_value} to compound tag "value" of {_node}
+            set {_value} to evaluate({_id}, {_value})
+            broadcast {_value}
+        
+        else if {_type} = "AssignmentStatement":
+            loop (compound list tag "assignments" of {_node}):
+                set {_assignment} to loop-value-2
+                set {_expression} to compound tag "expression" of {_assignment}
+                set {_value} to compound tag "value" of {_assignment}
+                set {_value} to evaluate({_id}, {_value})
+                set {_type} to (string tag "type" of {_expression})
+                if {_type} = "Identifier":
+                    set {_identifier} to (string tag "id" of {_expression})
+                    set {{@s}::variable::%{_identifier}%} to {_value}
+        
+        # ExpressionStatement
+        else if {_type} = "ExpressionStatement":
+            set {_expression} to compound tag "expression" of {_node}
+            evaluate({_id}, {_expression})
+        
+        # Error
+        else:
+            broadcast error({_id}, "Unidentified statement type '%{_type}%'", {_line}, -1)
+
+function evaluate(id: number, expression: nbtcompound) :: object:
+    set {_type} to string tag "type" of {_expression}
+    set {_line} to int tag "line" of {_expression}
+
+    # BinaryExpression
+    if {_type} = "BinaryExpression":
+        return evaluateBinaryExpression({_id}, {_expression})
+    
+    if {_type} = "Identifier":
+        set {_identifier} to (string tag "id" of {_expression})
+        return {{@s}::variable::%{_identifier}%}
+
+    # Literal
+    if {_type} = "StringLiteral" or "NumberLiteral":
+        return (tag "value" of {_expression})
+    else if {_type} = "BooleanLiteral":
+        set {_value} to string tag "value" of {_expression}
+        return {_value} parsed as boolean
+
+    # Error
+    broadcast error({_id}, "Unidentified expression type: '%{_type}%'", {_line}, -1)
+
+
+
+function evaluateBinaryExpression(id: number, expression: nbtcompound) :: object:
+    set {_line} to int tag "line" of {_expression}
+    set {_char} to int tag "char" of {_expression}
+    
+    set {_operator} to (string tag "operator" of {_expression})
+    set {_left} to (compound tag "left" of {_expression})
+    set {_right} to (compound tag "right" of {_expression})
+    set {_left} to evaluate({_id}, {_left})
+    {_left} is set
+    set {_right} to evaluate({_id}, {_right})
+    {_right} is set
+    if {_operator} = "+":
+        if (classinfo of {_left}) != text:
+            (classinfo of {_right}) != text
+            if (classinfo of {_left}) = number:
+                (classinfo of {_right}) = number
+                return {_left} + {_right}
+            broadcast error({_id}, "Invalid addition/concatenation of %{_left}% (%classinfo of {_left}%) and %{_right}% (%classinfo of {_right}%)", {_line}, -1)
+            return {_}
+        return "%{_left}%%{_right}%"
+    else if {_operator} = "-":
+        if (classinfo of {_left}) = number:
+            (classinfo of {_right}) = number
+            return {_left} - {_right}
+        broadcast error({_id}, "Invalid subtraction of %{_left}% (%classinfo of {_left}%) and %{_right}% (%classinfo of {_right}%)", {_line}, -1)
+        return {_}
+    else if {_operator} = "*":
+        set {_operand::*} to {_left} and {_right}
+        if {_operand::*} where [(classinfo of input) is not number or text] is set:
+            broadcast error({_id}, "Invalid multiplication/concatenation of %{_left}% (%classinfo of {_left}%) and %{_right}% (%classinfo of {_right}%)", {_line}, -1)
+            return {_}
+        if {_operand::*} where [(classinfo of input) = text] is not set:
+            return {_left} * {_right}
+        set {_string::*} to {_operand::*} where [(classinfo of input) is text]
+        set {_number::*} to {_operand::*} where [(classinfo of input) is number]
+        loop {_number::1} times:
+            set {_string} to "%{_string} ? ""%%{_string::1}%"
+        return {_string}
+    else if {_operator} = "/":
+        if (classinfo of {_left}) = number:
+            (classinfo of {_right}) = number
+            return {_left} / {_right}
+        broadcast error({_id}, "Invalid division of %{_left}% (%classinfo of {_left}%) and %{_right}% (%classinfo of {_right}%)", {_line}, -1)
+        return {_}

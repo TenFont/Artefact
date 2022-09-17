@@ -1,0 +1,263 @@
+options:
+    s: -state::%{_id}%
+
+# Utility Function
+function compound(id: number, type: string) :: nbtcompound:
+    set {_compound} to nbt compound from "{type:""%{_type}%""}"
+    set int tag "line" of {_compound} to {{@s}::line}
+    set int tag "char" of {_compound} to {{@s}::char}
+    return {_compound}
+
+# Utility Function
+function error(id: number, prompt: string, line: integer = -1, char: integer = -2) :: string:
+    set {_char} to {{@s}::char} if {_char} = -2
+    set {_charDisplay} to ", character %{{@s}::char}%" if {_char} >= 0
+    set {_line} to {{@s}::line} if {_line} = -1
+    set {_line::1} to "&4[ERROR] &c%{_prompt}% &7(line %{_line}%%{_charDisplay} ? ""%)"
+    set {_line::2} to {{@s}::lines::%{_line}%}
+    if {_char} >= 0:
+        set {_line::3} to "^"
+        while (length of {_line::3}) < {_char}:
+            set {_line::3} to " %{_line::3}%"
+    return (join {_line::*} by nl)
+
+# Constructor
+function Parser(id: number, string: string) :: nbtcompound:
+    set {{@s}::string} to {_string}
+    set {{@s}::cursor} to 1
+    set {{@s}::lines::*} to {_string} split at nl
+    set {{@s}::line} to 1
+    set {{@s}::char} to 1
+    getNextToken({_id})
+    set {_program} to Program({_id})
+    if {{@s}::errors::1} is set:
+        broadcast {{@s}::errors::1}
+        stop
+    return {_program}
+
+# Program
+#   - StatementList
+function Program(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "Program")
+    set compound list tag "body" of {_compound} to StatementList({_id})
+    return {_compound}
+
+# StatementList
+#   - Statement ...
+function StatementList(id: number, stopLookahead: string = "") :: nbtcompounds:
+    {{@s}::lookahead} is set
+    set {_statements::*} to Statement({_id})
+    while {{@s}::lookahead} is set:
+        add 1 to {{@s}::increment}
+        stop if {{@s}::increment} > 4
+        set {_type} to string tag "type" of {{@s}::lookahead}
+        exit loop if {_type} = {_stopLookahead}
+        add Statement({_id}) to {_statements::*}
+    return {_statements::*}
+
+# Statement
+#   - EmptyStatement
+#   - BlockStatement
+#   - PrintStatement
+#   - AssignmentStatement
+#   - ExpressionStatement
+function Statement(id: number) :: nbtcompound:
+    set {_type} to string tag "type" of {{@s}::lookahead}
+    if {_type} = ";":
+        set {_statement} to EmptyStatement({_id})
+    else if {_type} = "{":
+        set {_statement} to BlockStatement({_id})
+    else if {_type} = "print":
+        set {_statement} to PrintStatement({_id})
+    else if {_type} = "set":
+        set {_statement} to AssignmentStatement({_id})
+    else:
+        set {_statement} to ExpressionStatement({_id})
+    return {_statement}
+
+# EmptyStatement
+#   - ';'
+function EmptyStatement(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "EmptyStatement")
+    
+    consume({_id}, ";")
+    return {_compound}
+
+# BlockStatement
+#   - '{' + [StatementList] + '}'
+function BlockStatement(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "BlockStatement")
+
+    consume({_id}, "{")
+
+    set {_type} to string tag "type" of {{@s}::lookahead}
+    set {_statements::*} to StatementList({_id}, "}")
+    set compound list tag "body" of {_compound} to {_statements::*}
+    
+    consume({_id}, "}")
+    return {_compound}
+
+# PrintStatement
+#   - 'print' + Expression + ';'
+function PrintStatement(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "PrintStatement")
+    
+    consume({_id}, "print")
+    set {_expr} to Expression({_id})
+    consume({_id}, ";")
+    set compound tag "value" of {_compound} to {_expr}
+    return {_compound}
+
+# AssignmentStatement
+#   - 'set' + Identifier + 'to' + Expression + ';'
+#   - 'set' + (...) + ',' + (...) + ';'
+function AssignmentStatement(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "AssignmentStatement")
+
+    consume({_id}, "set")
+    do while (string tag "type" of {{@s}::lookahead}) = ",":
+        consume({_id}, ",") if (string tag "type" of {{@s}::lookahead}) = ","
+        set {_c} to nbt compound from "{}"
+        set (compound tag "expression" of {_c}) to PrimaryExpression({_id})
+        consume({_id}, "to")
+        set (compound tag "value" of {_c}) to Expression({_id})
+        add {_c} to {_assignments::*}
+    consume({_id}, ";")
+    set (compound list tag "assignments" of {_compound}) to {_assignments::*}
+    return {_compound}
+
+# ExpressionStatement
+#   - Expression + ';'
+function ExpressionStatement(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "ExpressionStatement")
+
+    set {_expr} to Expression({_id})
+    consume({_id}, ";")
+    set compound tag "expression" of {_compound} to {_expr}
+    return {_compound}
+
+# Expression
+#   - AdditiveExpression
+function Expression(id: number) :: nbtcompound:
+    set {_literal} to AdditiveExpression({_id})
+    return {_literal}
+
+# AdditiveExpression
+#   - MultiplicativeExpression
+function AdditiveExpression(id: number) :: nbtcompound:    
+    return BinaryExpression({_id}, "ADDITIVE_OPERATOR")
+
+# MultiplicativeExpression
+#   - PrimaryExpression
+function MultiplicativeExpression(id: number) :: nbtcompound:
+    return BinaryExpression({_id}, "MULTIPLICATIVE_OPERATOR")
+
+# BinaryExpression
+#   - MultiplicativeExpression
+#   - PrimaryExpression
+function BinaryExpression(id: number, op: string) :: nbtcompound:
+    set {_left} to (MultiplicativeExpression({_id}) if {_op} = "ADDITIVE_OPERATOR", else PrimaryExpression({_id}))
+    while (string tag "type" of {{@s}::lookahead}) = {_op}:
+        set {_compound} to compound({_id}, "BinaryExpression")
+
+        set {_operator} to consume({_id}, {_op})
+        set {_right} to (MultiplicativeExpression({_id}) if {_op} = "ADDITIVE_OPERATOR", else PrimaryExpression({_id}))
+        set string tag "operator" of {_compound} to (string tag "value" of {_operator})
+        set compound tag "left" of {_compound} to {_left}
+        set compound tag "right" of {_compound} to {_right}
+        set {_left} to {_compound}
+    return {_left}
+
+# PrimaryExpression
+#   - GroupedExpression
+#   - Literal
+function PrimaryExpression(id: number) :: nbtcompound:
+    set {_type} to (string tag "type" of {{@s}::lookahead})
+    if {_type} = "(":
+        return GroupedExpression({_id})
+    else if {_type} = "IDENTIFIER":
+        return Identifier({_id})
+    else:
+        return Literal({_id})
+
+# GroupedExpression
+#   - '(' + Expression + ')'
+function GroupedExpression(id: number) :: nbtcompound:
+    consume({_id}, "(")
+    set {_expression} to Expression({_id})
+    set {_closingParenthesis} to ")"
+    consume({_id}, {_closingParenthesis})
+    return {_expression}
+
+# Identifier
+#   - IDENTIFIER
+function Identifier(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "Identifier")
+
+    set {_identifier} to consume({_id}, "IDENTIFIER")
+    set {_value} to string tag "value" of {_identifier}
+    set string tag "id" of {_compound} to {_value}
+    return {_compound}
+
+# Literal
+#   - StringLiteral
+#   - NumberLiteral
+function Literal(id: number) :: nbtcompound:
+    set {_type} to string tag "type" of {{@s}::lookahead}
+
+    if {_type} = "STRING":
+        return StringLiteral({_id})
+    else if {_type} = "NUMBER":
+        return NumberLiteral({_id})
+    else if {_type} = "BOOLEAN":
+        return BooleanLiteral({_id})
+    set {_char} to int tag "char" of {{@s}::lookahead}
+    add error({_id}, "Unexpected token '%string tag "type" of {{@s}::lookahead}%', expected an expression instead", -1, {_char}) to {{@s}::errors::*}
+    return {_}
+
+# StringLiteral
+#   - STRING
+function StringLiteral(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "StringLiteral")
+
+    set {_string} to consume({_id}, "STRING")
+    set {_value} to (string tag "value" of {_string})
+    set {_value} to join (regex split {_value} at """(?="")")
+    set string tag "value" of {_compound} to {_value}
+    return {_compound}
+
+# NumberLiteral
+#   - NUMBER
+function NumberLiteral(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "NumberLiteral")
+
+    set {_number} to consume({_id}, "NUMBER")
+    set {_value} to string tag "value" of {_number}
+    set double tag "value" of {_compound} to ({_value} parsed as number)
+    return {_compound}
+
+# BooleanLiteral
+#   - BOOLEAN
+function BooleanLiteral(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "BooleanLiteral")
+
+    set {_boolean} to consume({_id}, "BOOLEAN")
+    set {_value} to string tag "value" of {_boolean}
+    set string tag "value" of {_compound} to {_value}
+    return {_compound}
+
+
+
+
+
+function consume(id: number, type: string) :: nbtcompound:
+    if {{@s}::lookahead} is not set:
+        add error({_id}, "Unexpected end of input, expected '%{_type}%'") to {{@s}::errors::*}
+    else if string tag "type" of {{@s}::lookahead} != {_type}:
+        set {_char} to int tag "char" of {{@s}::lookahead}
+        broadcast "E: %{_char}%"
+        add error({_id}, "Unexpected token '%string tag "type" of {{@s}::lookahead}%', expected '%{_type}%' instead", -1, {_char}) to {{@s}::errors::*}
+    else:
+        set {_token} to {{@s}::lookahead}
+        getNextToken({_id})
+        return {_token}
