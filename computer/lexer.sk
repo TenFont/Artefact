@@ -42,7 +42,6 @@ on load:
     registerToken("(\})", "}")
     registerToken("(\()", "(")
     registerToken("(,)", ",")
-    registerToken("(=)", "=")
     set {_match} to "(\))"
     set {_closingParenthesis} to ")"
     registerToken({_match}, {_closingParenthesis})
@@ -52,6 +51,7 @@ on load:
     # ------------------------------------------------------------
     registerToken("([\+-])", "ADDITIVE_OPERATOR")
     registerToken("([\*/])", "MULTIPLICATIVE_OPERATOR")
+    registerToken("(=)", "EQUALS_OPERATOR")
 
     # ------------------------------------------------------------
     # KEYWORDS
