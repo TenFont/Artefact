@@ -15,7 +15,7 @@ object property class[ ]info:
         loop {_classInfos::*}:
             return loop-value if expr-1 is loop-value
 
-function init(path: string):
+function init(path: string = "./code.txt"):
     set {_scanner} to new Scanner(new File({_path}))
     while {_scanner}.hasNextLine():
         add {_scanner}.nextLine() to {_lines::*}
