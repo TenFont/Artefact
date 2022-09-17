@@ -5,42 +5,76 @@ import:
 options:
     s: -state::%{_id}%
 
+function registerToken(pattern: string, type: string = ""):
+    set {_size} to size of indices of {-lexer::*}
+    set {-lexer::%{_size} + 1%::1} to {_pattern}
+    set {-lexer::%{_size} + 1%::2} to {_type} if {_type} != ""
+
 on load:
+    delete {-lexer::*}
+
     # ------------------------------------------------------------
     # NEWLINE
     # ------------------------------------------------------------
-    set {-lexer::newline::*} to "(\n)" and "NEWLINE"
-
-    # ------------------------------------------------------------
-    # SYMBOLS
-    # ------------------------------------------------------------
-    set {-lexer::semicolon::*} to "(;)" and ";"
-    set {-lexer::bracket_open::*} to "(\{)" and "{"
-    set {-lexer::bracket_close::*} to "(\})" and "}"
+    registerToken("(\n)", "NEWLINE")
 
     # ------------------------------------------------------------
     # COMMENTS
     # ------------------------------------------------------------
-    set {-lexer::COMMENT1::*} to "//.*"
-    set {-lexer::COMMENT2::*} to "/\*[\s\S]*?\*/"
-
+    registerToken("//.*")
+    registerToken("/\*[\s\S]*?\*/")
+    
     # ------------------------------------------------------------
     # WHITESPACE
     # ------------------------------------------------------------
-    set {-lexer::WHITESPACE::*} to "\s+"
+    registerToken("\s+")
+
+    # ------------------------------------------------------------
+    # IDENTIFIER
+    # ------------------------------------------------------------
+    registerToken("\{(\w+)\}", "IDENTIFIER")
+
+    # ------------------------------------------------------------
+    # SYMBOLS
+    # ------------------------------------------------------------
+    registerToken("(;)", ";")
+    registerToken("(\{)", "{")
+    registerToken("(\})", "}")
+    registerToken("(\()", "(")
+    registerToken("(,)", ",")
+    set {_match} to "(\))"
+    set {_closingParenthesis} to ")"
+    registerToken({_match}, {_closingParenthesis})
+
+    # ------------------------------------------------------------
+    # OPERATORS
+    # ------------------------------------------------------------
+    registerToken("([\+-])", "ADDITIVE_OPERATOR")
+    registerToken("([\*/])", "MULTIPLICATIVE_OPERATOR")
+
+    # ------------------------------------------------------------
+    # KEYWORDS
+    # ------------------------------------------------------------
+    registerToken("(print)\b", "print")
+    registerToken("(set)\b", "set")
+    registerToken("(to)\b", "to")
 
     # ------------------------------------------------------------
     # LITERALS
     # ------------------------------------------------------------
-    set {-lexer::number::*} to "(\d+(?:\.\d+)?)" and "NUMBER"
-    set {-lexer::string::*} to """((?:\\""|[^""])*)""" and "STRING"
+    registerToken("""((?:""""|[^""])*)""", "STRING")
+    registerToken("(\d+(?:\.\d+)?)", "NUMBER")
+    registerToken("(true|false)", "BOOLEAN")
 
 
 function getNextToken(id: number):
     if {{@s}::lookahead} is not set:
         {{@s}::cursor} != 1
         set {_failed} to true
+        set {{@s}::lookahead} to nbt compound from "{}"
+
     delete {{@s}::lookahead}
+
     if hasNextToken({_id}) = false:
         stop
     
@@ -51,22 +85,23 @@ function getNextToken(id: number):
         set {_v::*} to {-lexer::%loop-value%::*}
         set {_matcher} to Pattern.compile("^%{_v::1}%").matcher({_string})
         if {_matcher}.find():
+            set {{@s}::lookahead} to nbt compound from "{}"
             if {_v::2} = "NEWLINE":
                 cursor(1, {_id})
                 add 1 to {{@s}::line}
                 set {{@s}::char} to 1
                 getNextToken({_id})
                 stop
+            set {_compound} to compound({_id}, "temp")
             cursor((length of {_matcher}.group(0)), {_id})
             if size of {_v::*} < 2:
                 getNextToken({_id})
                 stop
-            set {_compound} to nbt compound from "{}"
             set string tag "type" of {_compound} to {_v::2}
             set string tag "value" of {_compound} to {_matcher}.group(1)
             set {{@s}::lookahead} to {_compound}
             stop
-    broadcast error({_id}, "Failed to analyze token") if {_failed} != true
+    add error({_id}, "Invalid syntax") to {{@s}::errors::*} if {_failed} != true
     cursor(1, {_id})
     getNextToken({_id})
 
