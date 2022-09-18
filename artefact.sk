@@ -4,30 +4,57 @@ on load:
     # MATERIALS
     # ------------------------------------------------------------
     
-    set {_refinedIron} to iron ingot named "&fRefined Iron"
-    register furnace recipe for {_refinedIron} using iron ingot with id "refined_iron"
+    set {-artefact::refinedIron} to iron ingot named "&fRefined Iron"
+    register furnace recipe for {-artefact::refinedIron} using iron ingot with id "refined_iron"
 
-    set {_refinedCopper} to copper ingot named "&fRefined Copper"
-    register furnace recipe for {_refinedCopper} using copper ingot with id "refined_copper"
+    set {-artefact::refinedCopper} to copper ingot named "&fRefined Copper"
+    register furnace recipe for {-artefact::refinedCopper} using copper ingot with id "refined_copper"
+
+    set {-artefact::refinedGlass} to glass block named "&fRefined Glass"
+    register furnace recipe for {-artefact::refinedGlass} using glass block with id "refined_glass"
 
     # ------------------------------------------------------------
-    # COMPONENTS
+    # ESSENTIALS
     # ------------------------------------------------------------
     
-    set {_wire} to string named "&fWire"
-    set {_wire::*} to {_refinedCopper}, {_refinedCopper} and {_refinedCopper}
-    register shapeless recipe for {_wire} using {_recipe::*} with id "wire"
+    # WIRES
+    set {-artefact::wire} to string named "&fWire"
+    set {-artefact::wire::*} to {-artefact::refinedCopper}, {-artefact::refinedCopper} and {-artefact::refinedCopper}
+    register shapeless recipe for {-artefact::wire} using {-artefact::wire::*} with id "wire"
 
-    set {_circuit} to daylight sensor named "&fCircuit"
-    set {_circuit::*} to {_wire}, {_wire} and {_wire}
-    add {_refinedIron}, {_refinedIron} and {_refinedIron} to {_circuit::*}
-    add {_wire}, {_wire} and {_wire} to {_circuit::*}
-    register shaped recipe for {_circuit} using {_circuit::*} with id "circuit"
+    # CIRCUITS
+    set {-artefact::circuit} to daylight sensor named "&fCircuit"
+    set {-artefact::circuit::*} to {-artefact::wire}, {-artefact::wire} and {-artefact::wire}
+    add {-artefact::refinedIron}, {-artefact::refinedIron} and {-artefact::refinedIron} to {-artefact::circuit::*}
+    add {-artefact::wire}, {-artefact::wire} and {-artefact::wire} to {-artefact::circuit::*}
+    register shaped recipe for {-artefact::circuit} using {-artefact::circuit::*} with id "circuit"
 
-    set {_battery} to black candle named "&fBattery"
-    set {_battery::*} to {_refinedIron}, {_wire} and {_refinedIron}
-    register shaped recipe for {_battery} using ({_battery::*}, {_battery::*} and {_battery::*}) with id "battery"
+    # BATTERIES
+    set {-artefact::battery} to black candle named "&fBattery"
+    set {-artefact::battery::*} to {-artefact::refinedIron}, {-artefact::wire} and {-artefact::refinedIron}
+    register shaped recipe for {-artefact::battery} using ({-artefact::battery::*}, {-artefact::battery::*} and {-artefact::battery::*}) with id "battery"
+
+    # TRANSMITTERS
+    set {-artefact::transmitter} to soul torch named "&fTransmitter"
+    add (air, end rod, air) to {-artefact::transmitter::*}
+    add ({-artefact::circuit}, {-artefact::refinedIron}, {-artefact::circuit}) to {-artefact::transitter:*}
+    add ({-artefact::refinedIron}, {-artefact::refinedIron}, {-artefact::refinedIron}) to {-artefact::transmitter:*}
+    register shaped recipe for {-artefact::transmitter} using {-artefact::transmitter::*} with id "transmitter"
+
+    set {-artefact::receiver} to soul torch named "&fReceiver"
+    add (air, lightning rod, air) to {-artefact::receiver::*}
+    add ({-artefact::circuit}, {-artefact::refinedIron}, {-artefact::circuit}) to {-artefact::transmitter::*}
+    add ({-artefact::refinedIron}, {-artefact::refinedIron}, {-artefact::refinedIron}) to {-artefact::transmitter::*}
+    register shaped recipe for {-artefact::receiver} using {-artefact::receiver::*} with id "receiver"
+
+    # ------------------------------------------------------------
+    # BASE COMPONENTS
+    # ------------------------------------------------------------
+    set {-artefact::lens} to glass pane named "&fLens"
+    set {-artefact::lens::*} to {-artefact::refinedGlass}, {-artefact::refinedGlass}, {-artefact::refinedGlass}
+    set {-artefact::lens::*} to ({-artefact::lens::*}, {-artefact::lens::*} and {-artefact::lens::*})
+    register shaped recipe for {-artefact::lens} using {-artefact::lens::*} with id "lens"
 
 on place of daylight sensor:
-    if name of tool is "&fCircuit":
+    if name of tool is "&fRefined Glass", "&fLens", "&fTransmitter", "&fReceiver" or "&fCircuit":
         cancel event
