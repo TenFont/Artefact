@@ -1,0 +1,33 @@
+on load:
+
+    # ------------------------------------------------------------
+    # MATERIALS
+    # ------------------------------------------------------------
+    
+    set {_refinedIron} to iron ingot named "&fRefined Iron"
+    register furnace recipe for {_refinedIron} using iron ingot with id "refined_iron"
+
+    set {_refinedCopper} to copper ingot named "&fRefined Copper"
+    register furnace recipe for {_refinedCopper} using copper ingot with id "refined_copper"
+
+    # ------------------------------------------------------------
+    # COMPONENTS
+    # ------------------------------------------------------------
+    
+    set {_wire} to string named "&fWire"
+    set {_wire::*} to {_refinedCopper}, {_refinedCopper} and {_refinedCopper}
+    register shapeless recipe for {_wire} using {_recipe::*} with id "wire"
+
+    set {_circuit} to daylight sensor named "&fCircuit"
+    set {_circuit::*} to {_wire}, {_wire} and {_wire}
+    add {_refinedIron}, {_refinedIron} and {_refinedIron} to {_circuit::*}
+    add {_wire}, {_wire} and {_wire} to {_circuit::*}
+    register shaped recipe for {_circuit} using {_circuit::*} with id "circuit"
+
+    set {_battery} to black candle named "&fBattery"
+    set {_battery::*} to {_refinedIron}, {_wire} and {_refinedIron}
+    register shaped recipe for {_battery} using ({_battery::*}, {_battery::*} and {_battery::*}) with id "battery"
+
+on place of daylight sensor:
+    if name of tool is "&fCircuit":
+        cancel event
