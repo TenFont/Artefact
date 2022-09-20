@@ -58,6 +58,7 @@ function StatementList(id: number, stopLookahead: string = "") :: nbtcompounds:
 # Statement
 #   - EmptyStatement
 #   - BlockStatement
+#   - IfStatement
 #   - PrintStatement
 #   - AssignmentStatement
 #   - ExpressionStatement
@@ -67,6 +68,9 @@ function Statement(id: number) :: nbtcompound:
         set {_statement} to EmptyStatement({_id})
     else if {_type} = "{":
         set {_statement} to BlockStatement({_id})
+    else if {_type} = "if":
+        broadcast "IF STATEMENT"
+        set {_statement} to IfStatement({_id})
     else if {_type} = "print":
         set {_statement} to PrintStatement({_id})
     else if {_type} = "set":
@@ -95,6 +99,24 @@ function BlockStatement(id: number) :: nbtcompound:
     set compound list tag "body" of {_compound} to {_statements::*}
     
     consume({_id}, "}")
+    return {_compound}
+
+# IfStatement
+#   - 'if' + '(' + Expression + ')' + Statement
+function IfStatement(id: number) :: nbtcompound:
+    set {_compound} to compound({_id}, "IfStatement")
+    
+    consume({_id}, "if")
+    consume({_id}, "(")
+    set {_test} to Expression({_id})
+    broadcast "EXPR: %pretty nbt of {_test} with split "    "%"
+    set {_c} to ")"
+    consume({_id}, {_c})
+    set {_statement} to Statement({_id})
+    broadcast "STATEMENT: %pretty nbt of {_statement} with split "    "%"
+
+    set compound tag "test" of {_compound} to {_test}
+    set compound tag "consequent" of {_compound} to {_statement}
     return {_compound}
 
 # PrintStatement
@@ -139,8 +161,23 @@ function ExpressionStatement(id: number) :: nbtcompound:
 # Expression
 #   - AdditiveExpression
 function Expression(id: number) :: nbtcompound:
-    set {_literal} to AdditiveExpression({_id})
-    return {_literal}
+    set {_expr} to RelationalExpression({_id})
+    return {_expr}
+
+# RelationalExpression
+#   - AdditiveExpression + 'RELATIONAL_OPERATOR' + AdditiveExpression
+function RelationalExpression(id: number) :: nbtcompound:
+    set {_left} to AdditiveExpression({_id})
+    while (string tag "type" of {{@s}::lookahead}) = "RELATIONAL_OPERATOR":
+        set {_compound} to compound({_id}, "BinaryExpression")
+
+        set {_operator} to consume({_id}, "RELATIONAL_OPERATOR")
+        set {_right} to AdditiveExpression({_id})
+        set string tag "operator" of {_compound} to (string tag "value" of {_operator})
+        set compound tag "left" of {_compound} to {_left}
+        set compound tag "right" of {_compound} to {_right}
+        set {_left} to {_compound}
+    return {_left}
 
 # AdditiveExpression
 #   - MultiplicativeExpression

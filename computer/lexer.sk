@@ -46,16 +46,19 @@ on load:
     set {_closingParenthesis} to ")"
     registerToken({_match}, {_closingParenthesis})
 
+    registerToken("([<>]=)", "RELATIONAL_OPERATOR")
+    registerToken("(=)", "EQUALITY_OPERATOR")
+
     # ------------------------------------------------------------
     # OPERATORS
     # ------------------------------------------------------------
     registerToken("([\+-])", "ADDITIVE_OPERATOR")
     registerToken("([\*/])", "MULTIPLICATIVE_OPERATOR")
-    registerToken("(=)", "EQUALS_OPERATOR")
 
     # ------------------------------------------------------------
     # KEYWORDS
     # ------------------------------------------------------------
+    registerToken("(if)\b", "if")
     registerToken("(print)\b", "print")
     registerToken("(set)\b", "set")
     registerToken("(to)\b", "to")
