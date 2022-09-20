@@ -1,4 +1,6 @@
 on load:
+    # Fix issue of repeatedly adding to variable if /sk reload is used
+    delete {-artefact::*}
 
     # ------------------------------------------------------------
     # MATERIALS
@@ -37,8 +39,8 @@ on load:
     # TRANSMITTERS
     set {-artefact::transmitter} to soul torch named "&fTransmitter"
     add (air, end rod, air) to {-artefact::transmitter::*}
-    add ({-artefact::circuit}, {-artefact::refinedIron}, {-artefact::circuit}) to {-artefact::transitter:*}
-    add ({-artefact::refinedIron}, {-artefact::refinedIron}, {-artefact::refinedIron}) to {-artefact::transmitter:*}
+    add ({-artefact::circuit}, {-artefact::refinedIron}, {-artefact::circuit}) to {-artefact::transmitter::*}
+    add ({-artefact::refinedIron}, {-artefact::refinedIron}, {-artefact::refinedIron}) to {-artefact::transmitter::*}
     register shaped recipe for {-artefact::transmitter} using {-artefact::transmitter::*} with id "transmitter"
 
     set {-artefact::receiver} to soul torch named "&fReceiver"
