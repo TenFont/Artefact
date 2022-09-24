@@ -27,7 +27,7 @@ function init(path: string = "./code.txt"):
     broadcast pretty nbt of {_parsed} with split "    "
     execute({_id}, {_parsed})
 
-function execute(id: number, statements: nbtcompounds):
+function execute(id: number, statements: nbtcompounds) :: boolean:
     loop {_statements::*}:
         set {_node} to loop-value
         set {_type} to string tag "type" of {_node}
@@ -40,7 +40,7 @@ function execute(id: number, statements: nbtcompounds):
         # Program | BlockStatement
         if {_type} = "Program" or "BlockStatement":
             set {_body::*} to compound list tag "body" of {_node}
-            execute({_id}, {_body::*})
+            stop if execute({_id}, {_body::*}) = false
         
         # IfStatement
         else if {_type} = "IfStatement":
@@ -54,7 +54,7 @@ function execute(id: number, statements: nbtcompounds):
         else if {_type} = "PrintStatement":
             set {_value} to compound tag "value" of {_node}
             set {_value} to evaluate({_id}, {_value})
-            broadcast {_value}
+            broadcast "%{_value}%"
         
         else if {_type} = "AssignmentStatement":
             loop (compound list tag "assignments" of {_node}):
@@ -84,6 +84,16 @@ function evaluate(id: number, expression: nbtcompound) :: object:
     if {_type} = "BinaryExpression":
         return evaluateBinaryExpression({_id}, {_expression})
     
+    # ConditionalExpression
+    if {_type} = "ConditionalExpression":
+        set {_test} to compound tag "test" of {_expression}
+        set {_test} to evaluate({_id}, {_test})
+        set {_consequent} to compound tag "consequent" of {_expression}
+        return evaluate({_id}, {_consequent}) if {_test} != false
+        set {_alternate} to compound tag "alternate" of {_expression}
+        return evaluate({_id}, {_alternate})
+    
+    # Identifier
     if {_type} = "Identifier":
         set {_identifier} to (string tag "id" of {_expression})
         return {{@s}::variable::%{_identifier}%}
@@ -108,9 +118,7 @@ function evaluateBinaryExpression(id: number, expression: nbtcompound) :: object
     set {_left} to (compound tag "left" of {_expression})
     set {_right} to (compound tag "right" of {_expression})
     set {_left} to evaluate({_id}, {_left})
-    {_left} is set
     set {_right} to evaluate({_id}, {_right})
-    {_right} is set
     if {_operator} = "+":
         if (classinfo of {_left}) != text:
             (classinfo of {_right}) != text
@@ -118,6 +126,7 @@ function evaluateBinaryExpression(id: number, expression: nbtcompound) :: object
                 (classinfo of {_right}) = number
                 return {_left} + {_right}
             broadcast error({_id}, "Invalid addition/concatenation of %{_left}% (%classinfo of {_left}%) and %{_right}% (%classinfo of {_right}%)", {_line}, -1)
+            return {_none}
         return "%{_left}%%{_right}%"
     else if {_operator} = "-":
         if (classinfo of {_left}) = number:
@@ -150,4 +159,12 @@ function evaluateBinaryExpression(id: number, expression: nbtcompound) :: object
             (classinfo of {_right}) = number
             return (true if {_left} >= {_right}, else false)
         broadcast error({_id}, "Invalid comparison of %{_left}% (%classinfo of {_left}%) and %{_right}% (%classinfo of {_right}%)", {_line}, -1)
+    else if {_operator} = "=":
+        if {_left} = {_right}:
+            return true
+        return false
+    else if {_operator} = "!=":
+        if {_left} != {_right}:
+            return true
+        return false
     return {_}

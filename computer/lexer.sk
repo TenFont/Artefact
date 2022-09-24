@@ -37,6 +37,8 @@ on load:
     # ------------------------------------------------------------
     # SYMBOLS
     # ------------------------------------------------------------
+    registerToken("(\?)", "?")
+    registerToken("(:)", ":")
     registerToken("(;)", ";")
     registerToken("(\{)", "{")
     registerToken("(\})", "}")
@@ -47,7 +49,7 @@ on load:
     registerToken({_match}, {_closingParenthesis})
 
     registerToken("([<>]=)", "RELATIONAL_OPERATOR")
-    registerToken("(=)", "EQUALITY_OPERATOR")
+    registerToken("(!?=)", "EQUALITY_OPERATOR")
 
     # ------------------------------------------------------------
     # OPERATORS
@@ -63,6 +65,10 @@ on load:
     registerToken("(set)\b", "set")
     registerToken("(to)\b", "to")
     registerToken("(delete)\b", "delete")
+    registerToken("(null)\b", "null")
+    registerToken("(and)\b", "and")
+    registerToken("(or)\b", "or")
+    registerToken("(not)\b", "not")
 
     # ------------------------------------------------------------
     # LITERALS

@@ -69,7 +69,6 @@ function Statement(id: number) :: nbtcompound:
     else if {_type} = "{":
         set {_statement} to BlockStatement({_id})
     else if {_type} = "if":
-        broadcast "IF STATEMENT"
         set {_statement} to IfStatement({_id})
     else if {_type} = "print":
         set {_statement} to PrintStatement({_id})
@@ -109,12 +108,10 @@ function IfStatement(id: number) :: nbtcompound:
     consume({_id}, "if")
     consume({_id}, "(")
     set {_test} to Expression({_id})
-    broadcast "EXPR: %pretty nbt of {_test} with split "    "%"
     set {_c} to ")"
     consume({_id}, {_c})
     set {_statement} to Statement({_id})
-    broadcast "STATEMENT: %pretty nbt of {_statement} with split "    "%"
-
+    
     set compound tag "test" of {_compound} to {_test}
     set compound tag "consequent" of {_compound} to {_statement}
     return {_compound}
@@ -161,8 +158,41 @@ function ExpressionStatement(id: number) :: nbtcompound:
 # Expression
 #   - AdditiveExpression
 function Expression(id: number) :: nbtcompound:
-    set {_expr} to RelationalExpression({_id})
+    set {_expr} to ConditionalExpression({_id})
     return {_expr}
+
+# ConditionalExpression
+#   - EqualityExpression + '?' + EqualityExpression + ':' + EqualityExpression
+function ConditionalExpression(id: number) :: nbtcompound:
+    set {_test} to EqualityExpression({_id})
+    while (string tag "type" of {{@s}::lookahead}) = "?":
+        set {_compound} to compound({_id}, "ConditionalExpression")
+
+        consume({_id}, "?")
+        set {_consequent} to EqualityExpression({_id})
+        consume({_id}, ":")
+        set {_alternate} to EqualityExpression({_id})
+
+        set compound tag "test" of {_compound} to {_test}
+        set compound tag "consequent" of {_compound} to {_consequent}
+        set compound tag "alternate" of {_compound} to {_alternate}
+        set {_test} to {_compound}
+    return {_test}
+
+# EqualityExpression
+#   - RelationalExpression + 'EQUALITY_OPERATOR' + RelationalExpression
+function EqualityExpression(id: number) :: nbtcompound:
+    set {_left} to RelationalExpression({_id})
+    while (string tag "type" of {{@s}::lookahead}) = "EQUALITY_OPERATOR":
+        set {_compound} to compound({_id}, "BinaryExpression")
+
+        set {_operator} to consume({_id}, "EQUALITY_OPERATOR")
+        set {_right} to RelationalExpression({_id})
+        set string tag "operator" of {_compound} to (string tag "value" of {_operator})
+        set compound tag "left" of {_compound} to {_left}
+        set compound tag "right" of {_compound} to {_right}
+        set {_left} to {_compound}
+    return {_left}
 
 # RelationalExpression
 #   - AdditiveExpression + 'RELATIONAL_OPERATOR' + AdditiveExpression
@@ -248,6 +278,8 @@ function Literal(id: number) :: nbtcompound:
         return NumberLiteral({_id})
     else if {_type} = "BOOLEAN":
         return BooleanLiteral({_id})
+    else if {_type} = "null":
+        return compound({_id}, "NullLiteral")
     set {_char} to int tag "char" of {{@s}::lookahead}
     add error({_id}, "Unexpected token '%string tag "type" of {{@s}::lookahead}%', expected an expression instead", -1, {_char}) to {{@s}::errors::*}
     return {_}
