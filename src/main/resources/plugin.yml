@@ -1,0 +1,6 @@
+name: Artefact
+version: '${project.version}'
+main: me.thetenfont.artefact.Artefact
+api-version: '1.18'
+authors: [TenFont]
+description: Add a whole new technical aspect to your minecraft server
