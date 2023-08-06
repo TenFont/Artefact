@@ -1,2 +1,4 @@
-package me.thetenfont.artefact.lang;public class Interpreter {
+package me.thetenfont.artefact.lang;
+
+public class Interpreter {
 }
